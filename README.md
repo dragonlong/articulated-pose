@@ -1,37 +1,32 @@
-## Welcome to GitHub Pages
+# Category-Level Articulated Object Pose Estimation
 
-You can use the [editor on GitHub](https://github.com/dragonlong/articulated-pose/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+Xiaolong Li, He Wang, Li Yi, Leonidas Guibas, A. Lynn Abbott, Shuran Song. [arXiv:xxx](https://arxiv.org/), 2019.
+implemented in Tensorflow, **coming soon**
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
 
-### Markdown
+Introduction
+-------------------
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+This repository contains the implementation of **A-NSCH**, a simple and efficient neural architecture for pose estimation of common articulated objects.
 
-```markdown
-Syntax highlighted code block
+The following figure shows the shared representation our model learns from depth observation. This hierarchy consists of a two-level hierarchy: at the leaf level, it uses Normalized Part Coordinate Space (NPCS)to represent each individual part; at the root level, it uses Normalized Articulated Object Coordinate Space (NAOCS), which is a singlecoordinate space that transforms all the NPCS-based parts to represent a complete articulated object in a pre-defined rest state.
 
-# Header 1
-## Header 2
-### Header 3
+<p align="center"> <img src="figs/A-NCSH.png" width="100%"> </p>
 
-- Bulleted
-- List
+## Qualitative Results
 
-1. Numbered
-2. List
+<p align="center"> <img src="figs/results.png" width="100%"> </p>
 
-**Bold** and _Italic_ and `Code` text
+## Quantitative Results
 
-[Link](url) and ![Image](src)
-```
+### Synthetic Data
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+Performance comparison on unseen object instances from [Shape2Motion](http://motiondataset.zbuaa.com) dataset. 
+We show that our proposed hierarchical representation gets significant better results compared to two of our baselines on pose estimation and joint state prediction.
+![a](./figs/synthetic.png)
 
-### Jekyll Themes
+### Real Data
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/dragonlong/articulated-pose/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+Quantitative results of different approaches on [ICCV2015 Articulated Object Challenge](https://hci.iwr.uni-heidelberg.de/vislearn/iccv2015-articulation-challenge/).
 
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+![s](./figs/real.png)
