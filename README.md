@@ -1,7 +1,8 @@
 # Category-Level Articulated Object Pose Estimation
 
-Xiaolong Li, He Wang, Li Yi, Leonidas Guibas, A. Lynn Abbott, Shuran Song. [arXiv:1912.11913](https://arxiv.org/abs/1912.11913), 2019. [Project webpage](https://articulated-pose.github.io/)
-implemented in Tensorflow, **coming soon**
+Xiaolong Li, He Wang, Li Yi, Leonidas Guibas, A. Lynn Abbott, Shuran Song. [arXiv:1912.11913](https://arxiv.org/abs/1912.11913), implemented in Tensorflow, code **coming soon**
+
+Please see our project page [here](https://articulated-pose.github.io/)
 
 
 Introduction
