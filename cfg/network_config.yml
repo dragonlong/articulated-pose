@@ -1,0 +1,64 @@
+# GPUs
+CUDA_visible_GPUs:
+    - "0"
+
+# name and mode
+nn_name: "SPFN"
+debug_mode: false
+
+# model parameters
+use_direct_regression: false
+direct_loss_multiplier: 1.0
+batch_size: 16
+miou_loss_multiplier: 1.0
+nocs_loss_multiplier: 10.0
+gocs_loss_multiplier: 1.0
+offset_loss_multiplier: 5.0
+orient_loss_multiplier: 0.2 # todo
+index_loss_multiplier: 1.0
+type_loss_multiplier: 1.0
+parameter_loss_multiplier: 1.0
+residue_loss_multiplier: 1.0
+total_loss_multiplier: 1.0
+parametri_type: "orth"
+list_of_primitives:
+    - 'sphere'
+    - 'plane'
+    - 'cylinder'
+    - 'cone'
+
+n_max_parts: 3
+
+# data source
+train_data_file: "shape2motion/hdf5/0.01/train.txt"
+train_first_n: -1
+train_data_add_noise: true
+val_data_file: "shape2motion/hdf5/0.01/test.txt"
+val_first_n: -1
+val_data_add_noise: true
+test_data_file: "shape2motion/hdf5/0.01/test.txt"
+test_first_n: -1
+test_data_noisy: true
+
+# training parameters
+n_epochs: 1000
+orthogonality_loss_weight: 0.1
+bn_decay_step: 200000
+decay_step: 200000
+decay_rate: 0.7
+init_learning_rate: 0.001
+val_interval: 5000
+snapshot_interval: 1000
+
+# I/O
+in_model_dir: "results/model"
+out_model_dir: "results/model"
+val_prediction_dir: "results/val_pred"
+val_prediction_n_keep: 2
+test_prediction_dir: "results/test_pred"
+demo_prediction_dir: "results/demo"
+log_dir: "results/log"
+writer_start_step: 100
+
+# loss
+coord_regress_loss: 'L2'
