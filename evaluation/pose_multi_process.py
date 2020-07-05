@@ -8,7 +8,7 @@ from multiprocessing import Process
 
 import _init_paths
 from global_info import global_info
-from parallel_ancsh_pose import solver_ransac_nonlinear
+from evaluation.parallel_ancsh_pose import solver_ransac_nonlinear
 from lib.data_utils import get_test_group
 
 if __name__ == '__main__':

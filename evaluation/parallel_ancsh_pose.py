@@ -1,99 +1,24 @@
-import numpy as np
 import os
-import sys
 import time
-import json
 import h5py
 import pickle
-import argparse
 import platform
-
+import argparse
+import numpy as np
 from scipy.optimize import linear_sum_assignment
-DIVISION_EPS = 1e-10
 from scipy.spatial.transform import Rotation as srot
 from scipy.optimize import least_squares
+
 import _init_paths
 from global_info import global_info
-from lib.data_utils import get_model_pts, get_pose, get_part_bounding_box, get_sampled_model_pts, get_test_group, get_pickle
-from lib.iou_3d import iou_3d
+from lib.d3_utils import rotate_pts, scale_pts, transform_pts, rot_diff_rad, rot_diff_degree, rotate_points_with_rotvec
 
-
-def hungarian_matching(W_pred, I):
-    # This non-tf function does not backprob gradient, only output matching indices
-    # W_pred - BxNxK
-    # I - BxN, may contain -1's
-    # Output: matching_indices - BxK, where (b,k)th ground truth primitive is matched with (b, matching_indices[b, k])
-    #   where only n_labels entries on each row have meaning. The matching does not include gt background part
-    batch_size = I.shape[0]
-    n_points = I.shape[1]
-    n_max_labels = W_pred.shape[2]
-
-    matching_indices = np.zeros([batch_size, n_max_labels], dtype=np.int32)
-    for b in range(batch_size):
-        # assuming I[b] does not have gap
-        n_labels = np.max(I[b]) + 1 # this is K'
-        # print('Type: ', type(n_points), type(n_max_labels))
-        W = np.zeros([n_points, n_labels + 1]) # HACK: add an extra column to contain -1's
-        W[np.arange(n_points), I[b]] = 1.0 # NxK'
-
-        dot = np.sum(np.expand_dims(W, axis=2) * np.expand_dims(W_pred[b], axis=1), axis=0) # K'xK
-        denominator = np.expand_dims(np.sum(W, axis=0), axis=1) + np.expand_dims(np.sum(W_pred[b], axis=0), axis=0) - dot
-        cost = dot / np.maximum(denominator, DIVISION_EPS) # K'xK
-        cost = cost[:n_labels, :] # remove last row, corresponding to matching gt background part
-
-        _, col_ind = linear_sum_assignment(-cost) # want max solution
-        # print('finishing linear_sum_assignment')
-        matching_indices[b, :n_labels] = col_ind
-
-    return matching_indices
-
-def rotate_pts(source, target):
-    # compute rotation between source: [N x 3], target: [N x 3]
-    # pre-centering
-    source = source - np.mean(source, 0, keepdims=True)
-    target = target - np.mean(target, 0, keepdims=True)
-    M = np.matmul(target.T, source)
-    U, D, Vh = np.linalg.svd(M, full_matrices=True)
-    d = (np.linalg.det(U) * np.linalg.det(Vh)) < 0.0
-    if d:
-        D[-1] = -D[-1]
-        U[:, -1] = -U[:, -1]
-    R = np.matmul(U, Vh)
-    return R
-
-def scale_pts(source, target):
-    # compute scaling factor between source: [N x 3], target: [N x 3]
-    pdist_s = source.reshape(source.shape[0], 1, 3) - source.reshape(1, source.shape[0], 3)
-    A = np.sqrt(np.sum(pdist_s**2, 2)).reshape(-1)
-    pdist_t = target.reshape(target.shape[0], 1, 3) - target.reshape(1, target.shape[0], 3)
-    b = np.sqrt(np.sum(pdist_t**2, 2)).reshape(-1)
-    scale = np.dot(A, b) / (np.dot(A, A)+1e-6)
-    return scale
-
-def transform_pts(source, target):
-    # source: [N x 3], target: [N x 3]
-    # pre-centering and compute rotation
-    source_centered = source - np.mean(source, 0, keepdims=True)
-    target_centered = target - np.mean(target, 0, keepdims=True)
-    rotation = rotate_pts(source_centered, target_centered)
-
-    # compute scale
-#     A = np.matmul(rotation, source_centered.T).reshape(-1)
-#     b = target_centered.T.reshape(-1)
-#     scale = np.dot(A, b) / (np.dot(A, A)+1e-6)
-    scale = scale_pts(source_centered, target_centered)
-
-    # compute translation
-    translation = np.mean(target.T-scale*np.matmul(rotation, source.T), 1)
-    return rotation, scale, translation
-
-def rot_diff_rad(rot1, rot2):
-    return np.arccos( ( np.trace(np.matmul(rot1, rot2.T)) - 1 ) / 2 ) % (2*np.pi)
-
-def rot_diff_degree(rot1, rot2):
-    return rot_diff_rad(rot1, rot2) / np.pi * 180
+DIVISION_EPS = 1e-10
+infos = global_info()
+my_dir= infos.base_path
 
 def ransac(dataset, model_estimator, model_verifier, inlier_th, niter=10000):
+    print(f'runing {niter} iterations')
     best_model = None
     best_score = -np.inf
     best_inliers = None
@@ -126,21 +51,6 @@ def single_transformation_verifier(dataset, model, inlier_th):
     inliers = np.sqrt(np.sum(res**2, 0)) < inlier_th
     score = np.sum(inliers)
     return score, inliers
-
-def rotate_points_with_rotvec(points, rot_vecs):
-    """Rotate points by given rotation vectors.
-
-    Rodrigues' rotation formula is used.
-    """
-    theta = np.linalg.norm(rot_vecs, axis=1)[:, np.newaxis]
-    with np.errstate(invalid='ignore'):
-        v = rot_vecs / theta
-        v = np.nan_to_num(v)
-    dot = np.sum(points * v, axis=1)[:, np.newaxis]
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-
-    return cos_theta * points + sin_theta * np.cross(v, points) + dot * (1 - cos_theta) * v
 
 def objective_eval(params, x0, y0, x1, y1, joints, isweight=True):
     # params: [:3] R0, [3:] R1
@@ -220,14 +130,10 @@ def joint_transformation_estimator(dataset, best_inliers = None, joint_type='rev
     target1_scaled_centered -= np.mean(target1_scaled_centered, 0, keepdims=True)
     source1_centered = source1 - np.mean(source1, 0, keepdims=True)
 
-    # joint optimization
-    #     joint_points0 = np.linspace(0, 1, num = np.min((source0.shape[0], source1.shape[0]))+1 )[1:].reshape((-1, 1))*dataset['joint_direction'].reshape((1, 3))
-    #     joint_points1 = np.linspace(0, 1, num = np.min((source0.shape[0], source1.shape[0]))+1 )[1:].reshape((-1, 1))*dataset['joint_direction'].reshape((1, 3))
     joint_points0 = np.ones_like(np.linspace(0, 1, num = np.min((source0.shape[0], source1.shape[0]))+1 )[1:].reshape((-1, 1)))*dataset['joint_direction'].reshape((1, 3))
     joint_points1 = np.ones_like(np.linspace(0, 1, num = np.min((source0.shape[0], source1.shape[0]))+1 )[1:].reshape((-1, 1)))*dataset['joint_direction'].reshape((1, 3))
     joint_axis    = dataset['joint_direction'].reshape((1, 3))
-    #     joint_points0 = np.linspace(0, 1, num = source1.shape[0]+1 )[1:].reshape((-1, 1))*dataset['joint_direction'].reshape((1, 3))
-    #     joint_points1 = np.linspace(0, 1, num = source0.shape[0]+1 )[1:].reshape((-1, 1))*dataset['joint_direction'].reshape((1, 3))
+
     R0 = rotate_pts(source0_centered, target0_scaled_centered)
     R1 = rotate_pts(source1_centered, target1_scaled_centered)
     rdiff0 = np.inf
@@ -267,12 +173,6 @@ def joint_transformation_estimator(dataset, best_inliers = None, joint_type='rev
     translation0 = np.mean(target0.T-scale0*np.matmul(R0, source0.T), 1)
     translation1 = np.mean(target1.T-scale1*np.matmul(R1, source1.T), 1)
 
-    # if joint_type == 'prismatic': # todo best_inliers is not None and
-    #     res = least_squares(objective_eval_t, np.hstack((translation0, translation1)), verbose=0, ftol=1e-4, method='lm',
-    #                 args=(source0, target0, source1, target1, joint_axis, R0, R1, scale0, scale1, False))
-    #     translation0 = res.x[:3]
-    #     translation1 = res.x[3:]
-
     jtrans = dict()
     jtrans['rotation0'] = R0
     jtrans['scale0'] = scale0
@@ -293,6 +193,7 @@ def joint_transformation_verifier(dataset, model, inlier_th):
     return score, [inliers0, inliers1]
 
 def solver_ransac_nonlinear(s_ind, e_ind, test_exp, baseline_exp, choose_threshold, num_parts, test_group, problem_ins, rts_all, file_name):
+    USE_BASELINE = True
     all_rts   = {}
     mean_err  = {'baseline': [], 'nonlinear': []}
     if num_parts == 2:
@@ -307,65 +208,91 @@ def solver_ransac_nonlinear(s_ind, e_ind, test_exp, baseline_exp, choose_thresho
         r_raw_err   = {'baseline': [[], [], [], []], 'nonlinear': [[], [], [], []]}
         t_raw_err   = {'baseline': [[], [], [], []], 'nonlinear': [[], [], [], []]}
         s_raw_err   = {'baseline': [[], [], [], []], 'nonlinear': [[], [], [], []]}
-  
+    print('working on ', my_dir + '/results/test_pred/{}/ with {} data'.format(test_exp, len(test_group)))
+    start_time = time.time()
     for i in range(s_ind, e_ind):
         # try:
         print('\n Checking {}th data point: {}'.format(i, test_group[i]))
         if test_group[i].split('_')[0] in problem_ins:
+            print('\n')
             continue
         basename = test_group[i].split('.')[0]
-        rts_dict      = rts_all[basename]
+        rts_dict = rts_all[basename]
         scale_gt = rts_dict['scale']['gt'] # list of 2, for part 0 and part 1
         rt_gt    = rts_dict['rt']['gt']    # list of 2, each is 4*4 Hom transformation mat, [:3, :3] is rotation
         nocs_err_pn   = rts_dict['nocs_err']
-
-        fb = h5py.File(global_info.base_path + '/results/test_pred/{}/{}.h5'.format(baseline_exp, basename), 'r')
-        # for name in list(f.keys()):
-        #     print(name, f[name].shape)
-
-        print('using baseline part NOCS')
-        nocs_pred = fb['nocs_per_point']
-        nocs_gt   = fb['nocs_gt']
-        mask_pred = fb['instance_per_point'][()]
-        mask_gt   = fb['cls_gt'][()]
-        # matching_indices = hungarian_matching(mask_pred[np.newaxis, : ,:], mask_gt[np.newaxis, :].astype(np.int32))
-        # mask_pred = mask_pred[:, matching_indices[0, :]]
+        f = h5py.File(my_dir + '/results/test_pred/{}/{}.h5'.format(test_exp, basename), 'r')
+        fb = h5py.File(my_dir + '/results/test_pred/{}/{}.h5'.format(baseline_exp, basename), 'r')
+        print('using part nocs prediction')
+        nocs_pred = f['nocs_per_point']
+        nocs_gt   = f['nocs_gt']
+        mask_pred      =  f['instance_per_point'][()]
+        joint_cls_gt   =  f['joint_cls_gt'][()]
+        if USE_BASELINE:
+            print('using baseline part NOCS')
+            nocs_pred = fb['nocs_per_point']
+            nocs_gt   = fb['nocs_gt']
+            mask_pred = fb['instance_per_point'][()]
+        mask_gt       =  f['cls_gt'][()]
         cls_per_pt_pred  = np.argmax(mask_pred, axis=1)
+
         partidx = []
         for j in range(num_parts):
             partidx.append(np.where(cls_per_pt_pred==j)[0])
 
-        f = h5py.File(global_info.base_path + '/results/test_pred/{}/{}.h5'.format(test_exp, basename), 'r')
-        joint_cls_pred = f['index_per_point'][()]
-        joint_cls_pred = np.argmax(joint_cls_pred, axis=1)
-        joint_idx = []
+        joint_idx_list_gt  = []
         for j in range(1, num_parts):
-            joint_idx.append(np.where(joint_cls_pred==j)[0])
+            idx           = np.where(joint_cls_gt == j)[0]
+            joint_idx_list_gt.append(idx)
 
-        mask_pred = f['instance_per_point'][()]
-        cls_per_pt_pred_ours  = np.argmax(mask_pred, axis=1)
-        partidx_ours = []
-        for j in range(num_parts):
-            partidx_ours.append(np.where(cls_per_pt_pred_ours==j)[0])
+        source_gt = nocs_gt
 
         scale_dict = {'gt': [], 'baseline': [], 'nonlinear': []}
-        r_dict = {'gt': [], 'baseline': [], 'nonlinear': []}
-        t_dict = {'gt': [], 'baseline': [], 'nonlinear': []}
+        r_dict  = {'gt': [], 'baseline': [], 'nonlinear': []}
+        t_dict  = {'gt': [], 'baseline': [], 'nonlinear': []}
         xyz_err = {'baseline': [], 'nonlinear': []}
         rpy_err = {'baseline': [], 'nonlinear': []}
         scale_err= {'baseline': [], 'nonlinear': []}
-        jts_axis = []
+
+        for j in range(num_parts):
+            source0 = nocs_pred[partidx[j], 3*j:3*(j+1)]
+            target0 = f['P'][partidx[j], :3]
+
+            niter = 10000
+            inlier_th = choose_threshold
+
+            dataset = dict()
+            dataset['source'] = source0
+            dataset['target'] = target0
+            dataset['nsource'] = source0.shape[0]
+            best_model, best_inliers = ransac(dataset, single_transformation_estimator, single_transformation_verifier, inlier_th, niter)
+            rdiff = rot_diff_degree(best_model['rotation'], rt_gt[j][:3, :3])
+            tdiff = np.linalg.norm(best_model['translation']-rt_gt[j][:3, 3])
+            sdiff = np.linalg.norm(best_model['scale']-scale_gt[j][0])
+            print('part %d -- rdiff: %f degree, tdiff: %f, sdiff %f, ninliers: %f, npoint: %f' % (j, rdiff, tdiff, sdiff, np.sum(best_inliers), best_inliers.shape[0]))
+            target0_fit = best_model['scale'] * np.matmul(best_model['rotation'], source0.T) + best_model['translation'].reshape((3, 1))
+            target0_fit = target0_fit.T
+            best_model0 = best_model
+            rpy_err['baseline'].append(rdiff)
+            xyz_err['baseline'].append(tdiff)
+            scale_err['baseline'].append(sdiff)
+            r_raw_err['baseline'][j].append(rdiff)
+            t_raw_err['baseline'][j].append(tdiff)
+            s_raw_err['baseline'][j].append(sdiff)
+            scale_dict['baseline'].append(best_model0['scale'])
+            r_dict['baseline'].append(best_model0['rotation'])
+            t_dict['baseline'].append(best_model0['translation'])
+
         for j in range(1, num_parts):
             niter = 200
             inlier_th = choose_threshold
-            source0 = nocs_pred[partidx[0], :3]
-            target0 = fb['P'][partidx[0], :3]
-            source1 = nocs_pred[partidx[j], 3*j:3*(j+1)]
-            target1 = fb['P'][partidx[j], :3]
 
-            jt_axis = np.median(f['joint_axis_per_point'][joint_idx[j-1], :], 0)
-            print('jt_axis', jt_axis)
-            jts_axis.append(jts_axis)
+            source0 = nocs_pred[partidx[0], :3]
+            target0 = f['P'][partidx[0], :3]
+            source1 = nocs_pred[partidx[j], 3*j:3*(j+1)]
+            target1 = f['P'][partidx[j], :3]
+            jt_axis = np.median(f['joint_axis_per_point'][joint_idx_list_gt[j-1], :], 0)
+            # print('jt_axis', jt_axis)
             dataset = dict()
             dataset['source0'] = source0
             dataset['target0'] = target0
@@ -416,7 +343,6 @@ def solver_ransac_nonlinear(s_ind, e_ind, test_exp, baseline_exp, choose_thresho
             t_dict['nonlinear'].append(best_model['translation1'])
 
         rts_dict['scale']   = scale_dict
-        rts_dict['axis']    = jts_axis
         rts_dict['rotation']      = r_dict
         rts_dict['translation']   = t_dict
         rts_dict['xyz_err'] = xyz_err
@@ -424,66 +350,23 @@ def solver_ransac_nonlinear(s_ind, e_ind, test_exp, baseline_exp, choose_thresho
         rts_dict['scale_err'] = scale_err
         all_rts[basename]   = rts_dict
         # except:
-        #     print('Something wrong happens!!')
+        #     print(f'wrong entry with {i}th data!!')
 
     with open(file_name, 'wb') as f:
         pickle.dump(all_rts, f)
 
     for j in range(num_parts):
-        r_err_base = np.array(r_raw_err['nonlinear'][j])
-        t_err_base = np.array(t_raw_err['nonlinear'][j])
+        r_err_base = np.array(r_raw_err['baseline'][j])
+        r_err_nonl = np.array(r_raw_err['nonlinear'][j])
+        t_err_base = np.array(t_raw_err['baseline'][j])
         t_err_base[np.where(np.isnan(t_err_base))] = 0
-        print('mean rotation err of part {}: \n'.format(j), 'nonlinear: {}'.format(r_err_base.mean())) #
-        print('mean translation err of part {}: \n'.format(j), 'nonlinear: {}'.format(t_err_base.mean())) #
+        t_err_nonl = np.array(t_raw_err['nonlinear'][j])
+        t_err_nonl[np.where(np.isnan(t_err_nonl))] = 0
+        print('mean rotation err of part {}: \n'.format(j), 'baseline: {}'.format(r_err_base.mean()), 'nonlin: {}'.format(r_err_nonl.mean()) ) #
+        print('mean translation err of part {}: \n'.format(j), 'baseline: {}'.format(t_err_base.mean()), 'nonlin: {}'.format(t_err_nonl.mean())) #
     end_time = time.time()
+    # print('Post-processing {} data entries takes {} seconds'.format(e_ind - s_ind, end_time - start_time))
     print('saving to ', file_name)
 
-
 if __name__ == '__main__':
-    if platform.uname()[1] == 'viz1':
-        my_dir       = '/home/xiaolong/ARCwork/6DPOSE'
-    else:
-        my_dir       = '/work/cascades/lxiaol9/6DPOSE'
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--domain', default='unseen', help='which sub test set to choose')
-    parser.add_argument('--nocs', default='NAOCS', help='which sub test set to choose')
-    parser.add_argument('--item', default='oven', help='object category for benchmarking')
-    parser.add_argument('--save', action='store_true', help='save err to pickles')
-    parser.add_argument('--viz', action='store_true', help='whether to viz')
-    args = parser.parse_args()
-
-    base_path    = my_dir + '/results/test_pred'
-    infos           = global_info()
-    dset_info       = infos.datasets[args.item]
-    num_parts       = dset_info.num_parts
-    num_ins         = dset_info.num_object
-    unseen_instances= dset_info.test_list
-    special_ins     = dset_info.spec_list
-    main_exp        = dset_info.exp
-    baseline_exp    = dset_info.baseline
-    test_exp        = main_exp
-    choose_threshold = 0.1
-
-    # testing
-    test_h5_path    = base_path + '/{}'.format(test_exp)
-    all_test_h5     = os.listdir(test_h5_path)
-    test_group      = get_test_group(all_test_h5, unseen_instances, domain=args.domain, spec_instances=special_ins)
-
-    all_bad          = []
-    print('we have {} testing data for {} {}'.format(len(test_group), args.domain, args.item))
-
-    if args.item == 'washing_machine':
-        problem_ins = ['0016']
-    elif args.item == 'drawer':
-        problem_ins = ['45841']
-    else:
-        problem_ins = []
-    start_time = time.time()
-    rts_all = pickle.load( open('/work/cascades/lxiaol9/6DPOSE/results/test_pred/pickle/{}/{}_{}_{}_rt.pkl'.format(main_exp, args.domain, args.nocs, args.item), 'rb' ))
-
-    directory = '/work/cascades/lxiaol9/6DPOSE/results/test_pred/pickle/{}'.format(main_exp)
-    file_name = directory + '/{}_{}_{}_{}_rt_ours_{}.pkl'.format(baseline_exp, args.domain, args.nocs, args.item, choose_threshold)
-
-    s_ind = 0
-    e_ind = 10
-    parallel_eval_part(s_ind, e_ind, test_exp, baseline_exp, choose_threshold, num_parts, test_group, problem_ins, rts_all, file_name)
+    pass
