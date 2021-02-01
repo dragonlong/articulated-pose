@@ -185,26 +185,13 @@ class global_info(object):
         self.name      = 'art6d'
         self.datasets  = _DATASETS
         self.model_type= 'pointnet++'
-        self.group_path= None
-
-        # check dataset_name automactically
-        group_path = None
-        if platform.uname()[0] == 'Darwin':
-            print("Now it knows it's in my local Mac")
-            base_path = '/Users/DragonX/Downloads/ARC/6DPOSE'
-        elif platform.uname()[1] == 'viz1':
-            base_path = '/home/xiaolong/Downloads/6DPOSE'
-        elif platform.uname()[1] == 'vllab3':
-            base_path = '/mnt/data/lxiaol9/rbo'
-        elif platform.uname()[1] == 'dragon':
-            base_path = '/home/dragon/Documents/CVPR2020'
-        else:
-            base_path = '/work/cascades/lxiaol9/6DPOSE'
-            group_path= '/groups/CESCA-CV'
-
-        self.base_path = base_path
-        self.group_path= group_path
+        # primary path, with sub-folders:
+        # model/: put all training profiles & checkpoints;
+        # results/: put network raw predictions + pose estimation results + error evaluation results;
+        # dataset/: all data we use
+        self.base_path = '/work/cascades/lxiaol9/6DPOSE'
+        self.group_path= './' # useful when we have additional dataset;
 
 if __name__ == '__main__':
     infos = global_info()
-    print(infos.datasets['bike'].dataset_name)
+    print(infos.datasets['eyeglasses'].dataset_name)

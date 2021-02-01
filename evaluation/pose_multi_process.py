@@ -62,7 +62,7 @@ if __name__ == '__main__':
         p=Process(target=solver_ransac_nonlinear, args=(num_per_cpu*k, e_ind, test_exp, baseline_exp, choose_threshold, num_parts, test_group, problem_ins, rts_all, sub_file_name))
         processes.append(p)
         p.start()
-    
+
     for process in processes:
         process.join()
     print('Process {} took {} seconds, with average {} seconds per data'.format(num_per_cpu*cpuCount, time.time() - starttime, (time.time() - starttime)/(num_per_cpu*cpuCount) ))

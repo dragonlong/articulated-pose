@@ -486,28 +486,12 @@ class Dataset:
             parts_parent_joint[idx] = group[0] # first element as part that serve as child
             parts_child_joint[idx] = [ind for ind, x in enumerate(joint_part) if x == group[-1]] # in a group, we may use the last element to find joint that part serves as parent
         # plot3d_pts([parts_gts], [['part {}'.format(j) for j in range(len(parts_map))]], s=10, title_name=['default'])
-        # print('parts_child_joint: ', parts_child_joint)
-        # print('parts_parent_joint: ', parts_parent_joint)
+
         for j in range(n_parts):
-            if nocs_type=='A':   # part NOCS compared to A-shape
-                norm_factor = norm_factors[j+1]
-                norm_corner = norm_corners[j+1]
-                nocs_p[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
-
-            elif nocs_type=='B': # partial visiable points
-                tight_w = max(parts_gts[j][:, 0]) - min(parts_gts[j][:, 0])
-                tight_l = max(parts_gts[j][:, 1]) - min(parts_gts[j][:, 1])
-                tight_h = max(parts_gts[j][:, 2]) - min(parts_gts[j][:, 2])
-                norm_factor = np.sqrt(1) / np.sqrt(tight_w**2 + tight_l**2 + tight_h**2)
-                left_p      = np.amin(parts_gts[j], axis=0, keepdims=True)
-                right_p     = np.amax(parts_gts[j], axis=0, keepdims=True)
-                norm_corner = [left_p, right_p]
-                nocs_n[j]   = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
-
-            elif nocs_type=='AC': # part NOCS + global NOCS
-                norm_factor = norm_factors[j+1]
-                norm_corner = norm_corners[j+1]
-                nocs_p[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
+            # part NOCS compared to A-shape
+            norm_factor = norm_factors[j+1]
+            norm_corner = norm_corners[j+1]
+            nocs_p[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
 
             norm_factor = norm_factors[0]
             norm_corner = norm_corners[0]
@@ -567,7 +551,7 @@ class Dataset:
                 plot_arrows_list(nocs_g, parts_offset_joint, parts_joints, title_name='joint offset')
                 plot_arrows_list_threshold(nocs_g, parts_offset_joint, parts_joints, title_name='joint offset')
 
-        return  nocs_p, nocs_g, nocs_n, parts_cls, parts_pts, offset_heatmap, offset_unitvec, joint_orient, joint_cls, joint_params, n_total_points
+        return nocs_p, nocs_g, nocs_n, parts_cls, parts_pts, offset_heatmap, offset_unitvec, joint_orient, joint_cls, joint_params, n_total_points
 
     def create_data_mobility(self, f, n_max_parts, num_points, parts_map = [[0, 3, 4], [1, 2]], instance=None, \
                                 norm_corners=[None], norm_factors=[None], joints=None, nocs_type='A', line_space='orth', thres_r=0.2,\
@@ -631,25 +615,10 @@ class Dataset:
             parts_child_joint[idx]  = [ind for ind, x in enumerate(joint_parent) if x-1 == group[-1]] # in a group, we may use the last element to find joint that part serves as parent
 
         for j in range(n_parts):
-            if nocs_type=='A':   # part NOCS compared to A-shape
-                norm_factor = norm_factors[j+1]
-                norm_corner = norm_corners[j+1]
-                nocs_p[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
-
-            elif nocs_type=='B': # partial visiable points
-                tight_w = max(parts_gts[j][:, 0]) - min(parts_gts[j][:, 0])
-                tight_l = max(parts_gts[j][:, 1]) - min(parts_gts[j][:, 1])
-                tight_h = max(parts_gts[j][:, 2]) - min(parts_gts[j][:, 2])
-                norm_factor = np.sqrt(1) / np.sqrt(tight_w**2 + tight_l**2 + tight_h**2)
-                left_p      = np.amin(parts_gts[j], axis=0, keepdims=True)
-                right_p     = np.amax(parts_gts[j], axis=0, keepdims=True)
-                norm_corner = [left_p, right_p]
-                nocs_n[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
-
-            elif nocs_type=='AC': # part NOCS + global NOCS
-                norm_factor = norm_factors[j+1]
-                norm_corner = norm_corners[j+1]
-                nocs_p[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
+            # part NOCS compared to A-shape
+            norm_factor = norm_factors[j+1]
+            norm_corner = norm_corners[j+1]
+            nocs_p[j] = (parts_gts[j][:, :3] - norm_corner[0]) * norm_factor + np.array([0.5, 0.5, 0.5]).reshape(1, 3) - 0.5 * (  norm_corner[1] - norm_corner[0]) * norm_factor
 
             norm_factor = norm_factors[0]
             norm_corner = norm_corners[0]
@@ -729,7 +698,7 @@ class Dataset:
             parts_cls[idx] = np.ones_like(parts_cls[idx]) * j
             joint_cls[idx] = np.ones_like(joint_cls[idx]) * j
 
-        return  nocs_p, nocs_g, nocs_n, parts_cls, parts_pts, offset_heatmap, offset_unitvec, joint_orient, joint_cls, joint_params, n_total_points
+        return nocs_p, nocs_g, nocs_n, parts_cls, parts_pts, offset_heatmap, offset_unitvec, joint_orient, joint_cls, joint_params, n_total_points
 
 
 if __name__=='__main__':

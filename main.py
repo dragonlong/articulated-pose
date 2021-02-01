@@ -41,7 +41,7 @@ if __name__ == '__main__':
     data_infos  = infos.datasets[args.item]
     if args.nocs_type == 'ancsh':
         print('print training ANCSH network')
-        args.num_expr = data_infos.exp 
+        args.num_expr = data_infos.exp
         nocs_type = 'AC'
         args.pred_joint     = True
         args.pred_joint_ind = True

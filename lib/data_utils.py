@@ -99,7 +99,7 @@ def split_dataset(root_dset, ctgy_objs, args, test_ins, spec_ins=[], train_ins=N
             for instance in train_ins:
                 if len(spec_ins)>0 and instance in spec_ins:
                     continue
-                for dir_arti in glob.glob(root_dset + '/hdf5/' + name_obj + '/' + instance + '/*'):
+                for dir_arti in glob.glob(root_dset + '/hdf5/' + name_obj + '/train/' + instance + '/*'):
                     h5_frames = glob.glob(dir_arti + '/*')
                     h5_list   = []
                     for file in h5_frames:
@@ -114,7 +114,7 @@ def split_dataset(root_dset, ctgy_objs, args, test_ins, spec_ins=[], train_ins=N
                         continue
 
             for instance in test_ins:
-                for dir_arti in glob.glob(root_dset + '/hdf5/' + name_obj + '/' + instance + '/*'):
+                for dir_arti in glob.glob(root_dset + '/hdf5/' + name_obj + '/test/' + instance + '/*'):
                     h5_frames = glob.glob(dir_arti + '/*')
                     h5_list   = []
                     for file in h5_frames:

@@ -49,7 +49,7 @@ if __name__ == '__main__':
     save_path = base_path + '/pickle/{}/'.format(main_exp)
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-        
+
     problem_ins = []
     start_time = time.time()
     for i in range(len(test_group)):

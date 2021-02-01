@@ -51,7 +51,7 @@ class PoseDataset():
         self.max_lnk  = 10
         self.root_dir  = root_dir
         self.dataset_render = root_dir + '/render'
-        self.models_dir  = root_dir + '/objects' 
+        self.models_dir  = root_dir + '/objects'
         self.objnamelist = os.listdir(self.dataset_render)
         self.mode        = mode
         self.list_rgb    = []
@@ -169,7 +169,7 @@ class PoseDataset():
 
         self.num    = num_points
         self.add_noise = add_noise
- 
+
     def __len__(self):
         return self.length
 
@@ -382,14 +382,14 @@ if __name__ == '__main__':
     selected_list = infos.datasets[item].train_list # default None, if specifies, will only choose specified instances
     #>>>>>>>>>>>>>>>>>>>>>>>>> config end here >>>>>>>>>>>>>>>>>>>#
 
-    # 1. collect filenames into all.txt
+    # 1. collect filenames into all.txt, then create dataset object
     collect_file(root_dset, [item], mode=args.mode)
-    # PoseData     = PoseDataset(root_dset, item, is_debug=args.debug, mode=args.mode, selected_list=selected_list)
-    # print('number of images: ', len(PoseData.list_rgb))
+    PoseData     = PoseDataset(root_dset, item, is_debug=args.debug, mode=args.mode, selected_list=selected_list)
+    print('number of images: ', len(PoseData.list_rgb))
 
-    # # 2. preprocess and save
-    # for i in range(0, len(PoseData.list_rgb)):
-    #     data = PoseData.__preprocess_and_save__(i)
+    # 2. preprocess and save
+    for i in range(0, len(PoseData.list_rgb)):
+        data = PoseData.__preprocess_and_save__(i)
 
-    # 3. split data into train & test
+    # 3. split .h5 data into train & test
     split_dataset(root_dset, [item], args, test_ins=infos.datasets[item].test_list, spec_ins=infos.datasets[item].spec_list, train_ins=infos.datasets[item].train_list)
