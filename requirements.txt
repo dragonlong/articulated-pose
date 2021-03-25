@@ -142,7 +142,7 @@ python-prctl==1.7
 pytz==2018.5
 PyWavefront==0.2.0
 PyWavelets==1.0.0
-PyYAML==3.13
+PyYAML==5.4
 pyzmq==17.1.2
 qtconsole==4.4.1
 requests==2.20.0
