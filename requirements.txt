@@ -124,7 +124,7 @@ pycollada==0.6
 pycparser==2.18
 pyface==6.0.0
 pyglet==1.4.0b1
-Pygments==2.2.0
+Pygments==2.7.4
 PyHamcrest==1.9.0
 pylint==1.8.4
 PyOpenGL==3.1.0
