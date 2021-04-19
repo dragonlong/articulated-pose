@@ -29,6 +29,7 @@ def ransac(dataset, model_estimator, model_verifier, inlier_th, niter=10000):
         if cur_score > best_score:
             best_model = cur_model
             best_inliers = cur_inliers
+            best_score = cur_score
     best_model = model_estimator(dataset, best_inliers)
     return best_model, best_inliers
 
