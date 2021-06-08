@@ -106,7 +106,7 @@ parso==0.3.1
 patsy==0.5.0
 pexpect==4.6.0
 pickleshare==0.7.4
-Pillow==5.2.0
+Pillow==8.2.0
 pluggy==0.7.1
 projectq==0.3.6
 prometheus-client==0.3.1
