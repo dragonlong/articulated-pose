@@ -176,7 +176,7 @@ traitlets==4.3.2
 traits==5.1.1
 traitsui==6.0.0
 trimesh==3.4.0
-Twisted==18.7.0
+Twisted==22.2.0
 typing==3.6.4
 urdfdom-py==0.4.0
 urllib3==1.24
