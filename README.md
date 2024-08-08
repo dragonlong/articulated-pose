@@ -32,6 +32,7 @@ If you find this code useful in your work, please consider citing:
 <p align="center"> <img src="figs/demo.gif" width="100%"> </p>
 
 ## Updates
+- [2024/08/08] We are trying to recover the checkpoints / dataset files due to a recent University-wide Google Drive reset. Meanwhile, feel free to check Hanxiao's [ANCSH_Pytorch](https://github.com/3dlg-hcvc/ANCSH-pytorch/tree/main?tab=readme-ov-file#Pretrained-Models) implementation for eyeglass and onedoor category.
 - :heavy_check_mark: [2021/02/01] release the [preprocessed synthetic dataset](https://drive.google.com/drive/folders/1lGBHFoI7AmVBEsgxfGCm8Lb_X78y_glA?usp=sharing) for 4 different categories, use [rclone](https://github.com/rclone/rclone) for Google Drive downloads
 
 ## Setup
