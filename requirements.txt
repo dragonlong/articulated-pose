@@ -179,7 +179,7 @@ trimesh==3.4.0
 Twisted==18.7.0
 typing==3.6.4
 urdfdom-py==0.4.0
-urllib3==1.24
+urllib3==1.26.5
 visdom==0.1.8.8
 vtk==8.1.2
 wcwidth==0.1.7
